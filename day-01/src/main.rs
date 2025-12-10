@@ -39,7 +39,7 @@ fn main() {
             Ok(n) => n,
             Err(_) => continue, // skip malformed numbers
         };
-        print!("{} (counter: {})-> {} = ", dial,zero_counter, s);
+        print!("{} (counter: {})-> {} = ", dial, zero_counter, s);
         dial = rotate_dial(dial, direction, steps, &mut zero_counter);
         println!("{} (counter: {})", dial, zero_counter);
     }

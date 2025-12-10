@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::hash::Hash;
 
 struct IdRange {
     start: u32,
@@ -25,9 +24,9 @@ fn main() {
             }
         })
         .collect();
-    let mut max_len_id = 0;
 
     // PT1
+    // let mut max_len_id = 0;
     // for id_range in id_ranges {
     //     for id in id_range.start..id_range.end {
     //         let id_str = id.to_string();
@@ -54,7 +53,9 @@ fn main() {
         }
     }
 
-    println!("Max ID length: {}", max_len_id);
+    // PT1
+    // println!("Max ID length: {}", max_len_id);
+
     let mut sum_of_invalid_ids: u64 = 0;
     for id in invalid_ids {
         sum_of_invalid_ids += id as u64;

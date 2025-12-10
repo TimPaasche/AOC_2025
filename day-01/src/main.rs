@@ -3,9 +3,9 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 #[derive(PartialEq, Debug)]
-enum dir {
-    left,
-    right,
+enum Dir {
+    Left,
+    Right,
 }
 
 fn main() {
@@ -27,9 +27,9 @@ fn main() {
         } // skip malformed lines like "R" or "L"
 
         let direction = if s.starts_with('R') {
-            dir::right
+            Dir::Right
         } else {
-            dir::left
+            Dir::Left
         };
         let steps_str = match s.get(1..) {
             Some(t) => t.trim(),
@@ -46,13 +46,13 @@ fn main() {
     println!("counter is {}", zero_counter);
 }
 
-fn rotate_dial(start_pos: i32, direction: dir, steps: i32, counter: &mut u32) -> i32 {
+fn rotate_dial(start_pos: i32, direction: Dir, steps: i32, counter: &mut u32) -> i32 {
     let mut pos = start_pos;
 
     // Determine step direction
     let step = match direction {
-        dir::left => -1,
-        dir::right => 1,
+        Dir::Left => -1,
+        Dir::Right => 1,
     };
 
     for _ in 0..steps {

@@ -1,46 +1,46 @@
 use tools::read_input_file;
-use tools::write_result_file;
 
 fn main() {
     let input = read_input_file();
-    let mut grid: Vec<Vec<char>> = input.lines().map(|l| l.chars().collect()).collect();
-    if grid.is_empty() {
-        return;
-    }
+    let grid: Vec<Vec<char>> = input.lines().map(|l| l.chars().collect()).collect();
+    let rows = grid.len();
+    let cols = grid[0].len();
 
-    for row in 0..grid.len() - 1 {
-        for col in 0..grid[row].len() {
-            if grid[row][col] == 'S' {
-                grid[row + 1][col] = '|';
-            }
-            if grid[row][col] == '|' && row < grid.len() && grid[row + 1][col] == '.' {
-                grid[row + 1][col] = '|';
-            }
-            if grid[row][col] == '|' && row < grid.len() && grid[row + 1][col] == '^' {
-                grid[row + 1][col - 1] = '|';
-                grid[row + 1][col + 1] = '|';
+    let mut ways = vec![vec![0i64; cols]; rows];
+
+    for r in 0..rows {
+        for c in 0..cols {
+            if grid[r][c] == 'S' {
+                ways[r][c] = 1;
             }
         }
     }
 
-    let mut count: i64 = 0;
+    // Process top-down (DAG order)
+    for r in 0..rows - 1 {
+        for c in 0..cols {
+            let w = ways[r][c];
+            if w == 0 {
+                continue;
+            }
 
-    for row in 1..grid.len() {
-        for col in 0..grid[row].len() {
-            if grid[row][col] == '^' && grid[row - 1][col] == '|' {
-                count += 1;
+            match grid[r + 1][c] {
+                '.' => {
+                    ways[r + 1][c] += w;
+                }
+                '^' => {
+                    if c > 0 {
+                        ways[r + 1][c - 1] += w;
+                    }
+                    if c + 1 < cols {
+                        ways[r + 1][c + 1] += w;
+                    }
+                }
+                _ => {}
             }
         }
     }
-    println!("count: {}", count);
 
-    let mut result: String = String::new();
-    for row in 0..grid.len() {
-        for col in 0..grid[row].len() {
-            result.push(grid[row][col]);
-        }
-        result.push('\n');
-    }
-
-    write_result_file(&result);
+    let total: i64 = ways[rows - 1].iter().sum();
+    println!("timelines: {}", total);
 }

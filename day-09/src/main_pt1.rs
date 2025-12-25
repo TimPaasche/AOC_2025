@@ -19,7 +19,7 @@ pub(crate) fn main_pt1() {
         })
         .collect();
 
-    println!("{:#?}", points);
+    // println!("{:#?}", points);
 
     let max_area = max_rectangle_area(&points).unwrap();
 

@@ -1,173 +1,171 @@
-use std::collections::{HashSet, VecDeque};
-
-use tools::read_input_file;
-
-#[derive(Debug)]
-struct Instruction {
-    goal: u16,
-    button_masks: Vec<u16>,
-    button_indices: Vec<Vec<u16>>,
-    joltage_values: Vec<u16>,
-}
+use std::collections::HashMap;
 
 fn main() {
-    let input: String = read_input_file();
+    let input = tools::read_input_file();
     let lines: Vec<&str> = input.lines().collect();
-    let mut count_startup: u32 = 0;
-    let mut count_joltage_value: u32 = 0;
-    for line in lines {
-        count_startup += minimal_moves_to_resolve_startup(line);
-        count_joltage_value += minimal_moves_to_resolve_joltage_value(line);
-    }
-    println!("count: {:?}", count_startup);
-}
+    let mut total_answer = 0;
 
-fn minimal_moves_to_resolve_startup(input_line: &str) -> u32 {
-    let instructions = parse_line(input_line);
-    bfs_startup(instructions)
-}
-
-fn minimal_moves_to_resolve_joltage_value(input_line: &str) -> u32 {
-    let instruction = parse_line(input_line);
-    bfs_joltage_value(&instruction)
-}
-
-fn parse_line(line: &str) -> Instruction {
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    //parsing if the first part (goal)
-    let goal_str = parts[0].trim_matches(|c| c == '[' || c == ']');
-    let mut goal: u16 = 0;
-    for (ii, cc) in goal_str.chars().enumerate() {
-        if cc == '#' {
-            goal |= 1 << ii;
+    for (i, line) in lines.iter().enumerate() {
+        if line.trim().is_empty() {
+            continue;
         }
-    }
 
-    //parsing the buttons
-    let mut button_masks: Vec<u16> = Vec::new();
-    let mut button_indices: Vec<Vec<u16>> = Vec::new();
-    for part in parts.iter().skip(1) {
-        if part.starts_with('{') {
-            break;
-        }
-        button_masks.push(parse_button_str_to_mask(part.clone()));
-        button_indices.push(parse_button_str_to_indices(part))
+        // Parse the line
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        // parts[0] is the label (ignored), parts[1..last] are coeffs, parts[last] is goal
+        if parts.len() < 2 { continue; }
+
+        let goal_str = parts.last().unwrap();
+        let goal = parse_vector(goal_str);
+
+        let coeff_strs = &parts[1..parts.len() - 1];
+        let raw_coeffs: Vec<Vec<usize>> = coeff_strs.iter()
+            .map(|s| parse_indices(s))
+            .collect();
+
+        // Convert raw indices to dense vectors (0s and 1s) based on goal dimension
+        let dim = goal.len();
+        let coeffs: Vec<Vec<i64>> = raw_coeffs.iter().map(|indices| {
+            let mut vec = vec![0; dim];
+            for &idx in indices {
+                if idx < dim {
+                    vec[idx] = 1;
+                }
+            }
+            vec
+        }).collect();
+
+        let subanswer = solve_single(&coeffs, &goal);
+
+        println!("Line {}/{}: answer {}", i + 1, lines.len(), subanswer);
+        total_answer += subanswer;
     }
 
-    //parsing the rest
-    let part_last = parts.last().unwrap();
-    let joltage_values: Vec<u16> = parse_joltage_values(part_last);
-    Instruction {
-        goal,
-        button_masks,
-        button_indices,
-        joltage_values,
+    println!("{}", total_answer);
+}
+
+// -----------------------------------------------------------------------------
+// Logic
+// -----------------------------------------------------------------------------
+
+fn solve_single(coeffs: &[Vec<i64>], goal: &[i64]) -> u64 {
+    let patterns = generate_patterns(coeffs);
+    let mut memo = HashMap::new();
+
+    let result = solve_recursive(goal, &patterns, &mut memo);
+
+    // If result is effectively infinite (no solution), treat as 0 or panic
+    // depending on AoC rules. The Python code added the infinity value,
+    // but usually, we want the sum of valid costs.
+    // Here we return the result if found, otherwise we assume 0 for "impossible".
+    if result >= u64::MAX / 2 { 0 } else { result }
+}
+
+fn solve_recursive(
+    goal: &[i64],
+    patterns: &HashMap<Vec<i64>, u64>,
+    memo: &mut HashMap<Vec<i64>, u64>
+) -> u64 {
+    // Base case: if goal is all 0s, cost is 0
+    if goal.iter().all(|&x| x == 0) {
+        return 0;
     }
-}
-fn parse_joltage_values(joltage_str: &str) -> Vec<u16> {
-    let mut rtn_joltage_values = Vec::new();
-    let joltige_str_trimmed: &str = joltage_str.trim_matches(|c| c == '{' || c == '}');
-    joltige_str_trimmed.split(',').for_each(|joltage_value| {
-        if let Ok(val) = joltage_value.parse::<u16>() {
-            rtn_joltage_values.push(val);
-        }
-    });
-    rtn_joltage_values
-}
 
-fn parse_button_str_to_mask(button_str: &str) -> u16 {
-    let content = button_str.trim_matches(|c| c == '(' || c == ')');
-    let mut btn_mask = 0;
+    if let Some(&val) = memo.get(goal) {
+        return val;
+    }
 
-    content.split(',').for_each(|num_str| {
-        if let Ok(idx) = num_str.parse::<u16>() {
-            btn_mask |= 1 << idx;
-        }
-    });
-    btn_mask
-}
+    let mut min_cost = u64::MAX;
 
-fn parse_button_str_to_indices(button_str: &str) -> Vec<u16> {
-    let mut rtn_val: Vec<u16> = Vec::new();
-    let content = button_str.trim_matches(|c| c == '(' || c == ')');
+    for (pattern, pattern_cost) in patterns {
+        // Check conditions:
+        // 1. pattern[i] <= goal[i]
+        // 2. pattern[i] % 2 == goal[i] % 2 (Same parity)
+        let is_compatible = goal.iter().zip(pattern.iter()).all(|(&g, &p)| {
+            p <= g && (g - p) % 2 == 0
+        });
 
-    content.split(',').for_each(|num_str| {
-        if let Ok(idx) = num_str.parse::<u16>() {
-            rtn_val.push(idx);
-        }
-    });
-    rtn_val
-}
+        if is_compatible {
+            // Calculate new goal: (goal - pattern) / 2
+            let new_goal: Vec<i64> = goal.iter().zip(pattern.iter())
+                .map(|(&g, &p)| (g - p) / 2)
+                .collect();
 
-fn bfs_startup(content: Instruction) -> u32 {
-    // Queue stores: (current_light_state, number_of_presses_so_far)
-    let mut queue: VecDeque<(u16, u32)> = VecDeque::new();
-    let mut visited: HashSet<u16> = HashSet::new();
+            let sub_res = solve_recursive(&new_goal, patterns, memo);
 
-    // We start with all lights OFF (state 0) and 0 presses.
-    queue.push_back((0, 0));
-    visited.insert(0);
-
-    // 3. Run BFS
-    while let Some((current_state, presses)) = queue.pop_front() {
-        // Did we match the pattern in the manual?
-        if current_state == content.goal {
-            return presses;
-        }
-
-        // Try pressing every available button
-        for button_mask in &content.button_masks {
-            // XOR toggles the bits where the button has a 1
-            let next_state = current_state ^ button_mask;
-
-            // If we haven't seen this light configuration before, add it to the queue
-            if visited.insert(next_state) {
-                queue.push_back((next_state, presses + 1));
+            if sub_res != u64::MAX {
+                // formula: cost + 2 * sub_cost
+                // Check for overflow just in case
+                if let Some(doubled) = sub_res.checked_mul(2) {
+                    if let Some(total) = pattern_cost.checked_add(doubled) {
+                        if total < min_cost {
+                            min_cost = total;
+                        }
+                    }
+                }
             }
         }
     }
 
-    panic!(
-        "Ohhhhhhh nooooo, no solution found for this machine! \n 
-            What a shame, seems like I am not a good coder lololololololol. \n 
-            Je suis un regard. Yo soy un regardo. "
-    );
+    memo.insert(goal.to_vec(), min_cost);
+    min_cost
 }
 
-fn bfs_joltage_value(content: &Instruction) -> u32 {
-    let number_of_joltage_values: usize = content.joltage_values.len();
-    // Queue stores: (current_joltage_state, number_of_presses_so_far)
-    let mut queue: VecDeque<(Vec<u16>, u32)> = VecDeque::new();
-    let mut visited: HashSet<Vec<u16>> = HashSet::new();
+/// Generates a map of {SumVector -> MinButtonsCount}
+/// Replaces itertools.combinations by iterating 0..2^N (Power Set)
+fn generate_patterns(coeffs: &[Vec<i64>]) -> HashMap<Vec<i64>, u64> {
+    let mut out: HashMap<Vec<i64>, u64> = HashMap::new();
+    let num_buttons = coeffs.len();
+    let num_vars = if num_buttons > 0 { coeffs[0].len() } else { 0 };
 
-    // We start with all lights OFF (state 0) and 0 presses.
-    queue.push_back((vec![0; number_of_joltage_values], 0));
-    visited.insert(vec![0; number_of_joltage_values]);
+    // Iterate all subsets via bitmask
+    // 1 << N is 2^N
+    let limit = 1 << num_buttons;
 
-    // Run BFS
-    while let Some((current_joltage_state, presses)) = queue.pop_front() {
-        if current_joltage_state == content.joltage_values {
-            return presses;
-        }
-        // if current_joltage_state < content.joltage_values {
-        //     continue;
-        // }
+    // Iterating by length (population count) ensures we find smallest cost first
+    // if we want to mimic the Python structure strictly, but since we put everything
+    // into a map, we can just iterate linear and use min().
+    for mask in 0..limit {
+        let mut current_sum = vec![0; num_vars];
+        let mut cost = 0;
 
-        // try pressing every available button
-        for button_indix in &content.button_indices {
-            let mut next_state = current_joltage_state.clone();
-            for idx in button_indix {
-                next_state[*idx as usize] += 1;
-            }
-            // If we haven't seen this light configuration before, add it to the queue
-            if visited.insert(next_state.clone()) {
-                queue.push_back((next_state, presses + 1));
+        for i in 0..num_buttons {
+            if (mask >> i) & 1 == 1 {
+                cost += 1;
+                for (k, val) in coeffs[i].iter().enumerate() {
+                    current_sum[k] += val;
+                }
             }
         }
+
+        // Store the minimum cost for this specific vector pattern
+        out.entry(current_sum)
+            .and_modify(|c| *c = (*c).min(cost))
+            .or_insert(cost);
     }
 
-    panic!(
-        "Ohhhhhhh nooooo, no solution found for this machine!\nWhat a shame, seems like I am not a good coder lololololololol.\nJe suis un regard. Yo soy un regardo. "
-    );
+    out
+}
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+fn parse_vector(s: &str) -> Vec<i64> {
+    // Expects formats like "(1,2,3)" or "{1,2,3}"; be robust to spaces
+    s.trim()
+        .trim_matches(|c| c == '(' || c == ')' || c == '{' || c == '}')
+        .split(',')
+        .map(|n| n.trim())
+        .filter_map(|n| n.parse::<i64>().ok())
+        .collect()
+}
+
+fn parse_indices(s: &str) -> Vec<usize> {
+    // Expects "(1,2,3)" -> returns [1, 2, 3]
+    s.trim_matches(|c| c == '(' || c == ')')
+        .split(',')
+        .map(|n| n.trim())
+        .filter_map(|n| n.parse::<usize>().ok())
+        .collect()
 }

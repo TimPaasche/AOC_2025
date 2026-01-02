@@ -6,7 +6,7 @@ use tools::read_input_file;
 struct Instruction {
     goal: u16,
     buttons: Vec<u16>,
-    rest: String,
+    // rest: String,
 }
 
 fn main() {
@@ -46,11 +46,11 @@ fn parse_line(line: &str) -> Instruction {
     }
 
     //parsing the rest
-    let rest = parts.last().unwrap();
+    // let rest = parts.last().unwrap();
     Instruction {
         goal,
         buttons,
-        rest: rest.to_string(),
+        // rest: rest.to_string(),
     }
 }
 

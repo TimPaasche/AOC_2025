@@ -5,8 +5,8 @@ use tools::read_input_file;
 #[derive(Debug)]
 #[derive(Clone)]
 struct IdRange {
-    Lower: u64,
-    Upper: u64,
+    lower: u64,
+    upper: u64,
 }
 
 fn main() {
@@ -37,8 +37,8 @@ fn parse_id_ranges(id_ranges_str: Vec<&str>) -> Vec<IdRange> {
         .map(|range| {
             let (start, end) = range.split_once('-').unwrap();
             IdRange {
-                Lower: start.parse::<u64>().unwrap(),
-                Upper: end.parse::<u64>().unwrap(),
+                lower: start.parse::<u64>().unwrap(),
+                upper: end.parse::<u64>().unwrap(),
             }
         })
         .collect()
@@ -53,7 +53,7 @@ fn collect_ids(lines: Vec<&str>) -> Vec<u64> {
 }
 
 fn validate_id(id: &u64, ranges: &Vec<IdRange>) -> bool {
-    ranges.iter().any(|range| range.Lower <= *id && range.Upper >= *id)
+    ranges.iter().any(|range| range.lower <= *id && range.upper >= *id)
 }
 
 fn count_valid_ids(ranges: &Vec<IdRange>) -> u64 {
@@ -61,20 +61,20 @@ fn count_valid_ids(ranges: &Vec<IdRange>) -> u64 {
         return 0;
     }
     let mut sorted_ranges = ranges.clone();
-    sorted_ranges.sort_by_key(|r| r.Lower);
+    sorted_ranges.sort_by_key(|r| r.lower);
 
     let mut total_count: u64 = 0;
 
-    let mut current_start = sorted_ranges[0].Lower;
-    let mut current_end = sorted_ranges[0].Upper;
+    let mut current_start = sorted_ranges[0].lower;
+    let mut current_end = sorted_ranges[0].upper;
 
     for range in sorted_ranges.iter().skip(1) {
-        if range.Lower <= current_end + 1 {
-            current_end = max(current_end, range.Upper);
+        if range.lower <= current_end + 1 {
+            current_end = max(current_end, range.upper);
         } else {
             total_count += (current_end - current_start) + 1;
-            current_start = range.Lower;
-            current_end = range.Upper;
+            current_start = range.lower;
+            current_end = range.upper;
         }
     }
     total_count += (current_end - current_start) + 1;

@@ -36,7 +36,7 @@ fn main() {
         operation: Operation::None,
     };
 
-    let row_count = grid.len();
+    // let row_count = grid.len();
     let col_count = grid[0].len();
 
     for x in 0..col_count {

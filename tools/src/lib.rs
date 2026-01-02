@@ -1,6 +1,5 @@
 use std::{env, fs, path};
 
-
 pub fn read_input_file() -> String {
     let path = format!(
         "{}{}src{}input.txt",
@@ -17,7 +16,7 @@ pub fn read_input_file() -> String {
     contents_with_bom.trim_start_matches('\u{FEFF}').to_string()
 }
 
-pub fn write_result_file(result: &str){
+pub fn write_result_file(result: &str) {
     let path = format!(
         "{}{}src{}result.txt",
         env::current_dir()
@@ -27,6 +26,6 @@ pub fn write_result_file(result: &str){
         path::MAIN_SEPARATOR,
         path::MAIN_SEPARATOR
     );
-    
+
     fs::write(&path, result).expect(&format!("Failed to write file: {}", path));
 }

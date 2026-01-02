@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use tools::read_input_file;
 
 #[derive(PartialEq, Debug)]
